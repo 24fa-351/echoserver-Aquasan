@@ -10,16 +10,15 @@
 #pragma comment(lib, "Ws2_32.lib")
 
 DWORD WINAPI handle_client(void *arg);
-
 int start_server(int port, int multi_threaded);
 
 int main(int argc, char *argv[]) {
     int port = 0;
     int multi_threaded = 0;
 
-    // ./echo_server -p <port> <--multi-thread>
+    // ./echo_server -p <port> --multi-thread
     if (argc < 3) {
-        fprintf(stderr, "Usage: %s -p <port> [--multi-threaded]\n", argv[0]);
+        fprintf(stderr, "Usage: %s -p <port> [--multi-thread]\n", argv[0]);
         exit(EXIT_FAILURE);
     }
 
@@ -32,7 +31,6 @@ int main(int argc, char *argv[]) {
                 fprintf(stderr, "No port specified after -p\n");
                 exit(EXIT_FAILURE);
             }
-            //enables the multi-thread
         } else if (strcmp(argv[i], "--multi-thread") == 0) {
             multi_threaded = 1;
         }
@@ -66,10 +64,28 @@ DWORD WINAPI handle_client(void *arg) {
     printf("Client connected.\n");
 
     while ((bytes_read = recv(client_socket, &buffer[buffer_index], 1, 0)) > 0) {
-        if (buffer[buffer_index] == '\n') {
-            buffer[buffer_index + 1] = '\0'; 
-            printf("Received line: %s", buffer); 
-            buffer_index = 0; 
+        // Check if the received character is a newline or carriage return
+        if (buffer[buffer_index] == '\n' || buffer[buffer_index] == '\r') {
+            // Null-terminate the line
+            buffer[buffer_index] = '\0';
+
+            // Remove the carriage return if present
+            if (buffer_index > 0 && buffer[buffer_index - 1] == '\r') {
+                buffer[buffer_index - 1] = '\0'; 
+            }
+
+            // If the buffer is not empty, echo it back
+            if (buffer_index > 0) {
+                printf("Received line: %s\n", buffer);
+                if (send(client_socket, buffer, buffer_index, 0) == -1) {
+                    perror("send");
+                } else {
+                    printf("Echoed back: %s\n", buffer);
+                }
+            }
+
+            // Reset buffer for the next line
+            buffer_index = 0;
         } else {
             buffer_index++;
             // Prevent buffer overflow
